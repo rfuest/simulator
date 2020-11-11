@@ -12,7 +12,7 @@ use embedded_graphics::{
     pixelcolor::Rgb888,
     prelude::*,
     primitives::*,
-    style::{MonospacedTextStyle, PrimitiveStyle, PrimitiveStyleBuilder},
+    style::{MonoTextStyle, PrimitiveStyle, PrimitiveStyleBuilder},
 };
 use embedded_graphics_simulator::{
     OutputSettingsBuilder, SimulatorDisplay, SimulatorEvent, Window,
@@ -28,7 +28,7 @@ fn draw_ellipse(
     display.clear(Rgb888::BLACK).unwrap();
 
     Text::new(&format!("S: {}\n{:?}", stroke_width, size), Point::zero())
-        .into_styled(MonospacedTextStyle::new(Font6x8, Rgb888::MAGENTA))
+        .into_styled(MonoTextStyle::new(Font6x8, Rgb888::MAGENTA))
         .draw(display)
         .unwrap();
 

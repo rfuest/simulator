@@ -14,7 +14,7 @@ use embedded_graphics::{
     pixelcolor::Rgb888,
     prelude::*,
     primitives::Line,
-    style::{MonospacedTextStyle, PrimitiveStyle},
+    style::{MonoTextStyle, PrimitiveStyle},
 };
 use embedded_graphics_simulator::{
     OutputSettingsBuilder, SimulatorDisplay, SimulatorEvent, Window,
@@ -44,7 +44,7 @@ fn draw(
         ),
         Point::zero(),
     )
-    .into_styled(MonospacedTextStyle::new(Font6x8, Rgb888::MAGENTA))
+    .into_styled(MonoTextStyle::new(Font6x8, Rgb888::MAGENTA))
     .draw(display)?;
 
     Line::new(start, position)

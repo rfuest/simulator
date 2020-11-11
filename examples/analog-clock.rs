@@ -13,7 +13,7 @@ use embedded_graphics::{
     pixelcolor::BinaryColor,
     prelude::*,
     primitives::{Circle, Line, Rectangle},
-    style::{MonospacedTextStyle, PrimitiveStyle, PrimitiveStyleBuilder},
+    style::{MonoTextStyle, PrimitiveStyle, PrimitiveStyleBuilder},
 };
 use embedded_graphics_simulator::{
     OutputSettingsBuilder, SimulatorDisplay, SimulatorEvent, Window,
@@ -143,7 +143,7 @@ fn draw_digital_clock<D: DrawTarget<Color = BinaryColor>>(
     time_str: &'_ str,
 ) -> Result<(), D::Error> {
     let text = Text::new(&time_str, CENTER - Size::new(48, 48))
-        .into_styled(MonospacedTextStyle::new(Font12x16, BinaryColor::Off));
+        .into_styled(MonoTextStyle::new(Font12x16, BinaryColor::Off));
 
     // Add a background around the time digits. Note that there is no bottom-right padding as this
     // is added by the font renderer itself
