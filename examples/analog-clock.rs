@@ -13,7 +13,7 @@ use embedded_graphics::{
     pixelcolor::BinaryColor,
     prelude::*,
     primitives::{Circle, Line, Rectangle},
-    style::{PrimitiveStyle, PrimitiveStyleBuilder, Styled, TextStyle},
+    style::{MonospacedTextStyle, PrimitiveStyle, PrimitiveStyleBuilder},
 };
 use embedded_graphics_simulator::{
     OutputSettingsBuilder, SimulatorDisplay, SimulatorEvent, Window,
@@ -38,15 +38,16 @@ fn polar(angle: f32, radius: f32) -> Point {
 }
 
 /// Draw a circle and 12 tics as a simple clock face
-fn draw_face() -> impl Iterator<Item = Pixel<BinaryColor>> {
+fn draw_face<D: DrawTarget<Color = BinaryColor>>(target: &mut D) -> Result<(), D::Error> {
     let tic_len = 10.0;
 
     // Create the outer face
-    let face = Circle::with_center(CENTER, 2 * SIZE + 1)
-        .into_styled(PrimitiveStyle::with_stroke(BinaryColor::On, 2));
+    Circle::with_center(CENTER, 2 * SIZE + 1)
+        .into_styled(PrimitiveStyle::with_stroke(BinaryColor::On, 2))
+        .draw(target)?;
 
     // Create 12 `Line`s starting from the outer edge and drawing inwards by `tic_len` pixels
-    let tics = (0..12).map(move |index| {
+    for index in 0..12 {
         // Start angle around the circle, in radians
         let angle = START + (PI * 2.0 / 12.0) * index as f32;
 
@@ -58,23 +59,26 @@ fn draw_face() -> impl Iterator<Item = Pixel<BinaryColor>> {
 
         Line::new(start, end)
             .into_styled(PrimitiveStyle::with_stroke(BinaryColor::On, 1))
-            .into_pixels()
-    });
+            .draw(target)?;
+    }
 
-    // Create a single iterator of pixels, first iterating over the circle, then over the 12 lines
-    // generated
-    face.into_pixels().chain(tics.flatten())
+    Ok(())
 }
 
 /// Draw the seconds hand given a seconds value (0 - 59)
-fn draw_seconds_hand(seconds: u32) -> impl Iterator<Item = Pixel<BinaryColor>> {
+fn draw_seconds_hand<D: DrawTarget<Color = BinaryColor>>(
+    target: &mut D,
+    seconds: u32,
+) -> Result<(), D::Error> {
     // Convert seconds into a position around the circle in radians
     let seconds_radians = ((seconds as f32 / 60.0) * 2.0 * PI) + START;
 
     let end = polar(seconds_radians, SIZE as f32);
 
     // Basic line hand
-    let hand = Line::new(CENTER, end).into_styled(PrimitiveStyle::with_stroke(BinaryColor::On, 1));
+    Line::new(CENTER, end)
+        .into_styled(PrimitiveStyle::with_stroke(BinaryColor::On, 1))
+        .draw(target)?;
 
     // Decoration position
     let decoration_position = polar(seconds_radians, SIZE as f32 - 20.0);
@@ -87,13 +91,18 @@ fn draw_seconds_hand(seconds: u32) -> impl Iterator<Item = Pixel<BinaryColor>> {
         .build();
 
     // Add a fancy circle near the end of the hand
-    let decoration = Circle::with_center(decoration_position, 11).into_styled(decoration_style);
+    Circle::with_center(decoration_position, 11)
+        .into_styled(decoration_style)
+        .draw(target)?;
 
-    hand.into_pixels().chain(decoration.into_pixels())
+    Ok(())
 }
 
 /// Draw the hour hand (0-11)
-fn draw_hour_hand(hour: u32) -> Styled<Line, PrimitiveStyle<BinaryColor>> {
+fn draw_hour_hand<D: DrawTarget<Color = BinaryColor>>(
+    target: &mut D,
+    hour: u32,
+) -> Result<(), D::Error> {
     // Convert hour into a position around the circle in radians
     let hour_radians = ((hour as f32 / 12.0) * 2.0 * PI) + START;
 
@@ -102,11 +111,16 @@ fn draw_hour_hand(hour: u32) -> Styled<Line, PrimitiveStyle<BinaryColor>> {
     let end = polar(hour_radians, hand_len);
 
     // Basic line hand
-    Line::new(CENTER, end).into_styled(PrimitiveStyle::with_stroke(BinaryColor::On, 1))
+    Line::new(CENTER, end)
+        .into_styled(PrimitiveStyle::with_stroke(BinaryColor::On, 1))
+        .draw(target)
 }
 
 /// Draw the minute hand (0-59)
-fn draw_minute_hand(minute: u32) -> Styled<Line, PrimitiveStyle<BinaryColor>> {
+fn draw_minute_hand<D: DrawTarget<Color = BinaryColor>>(
+    target: &mut D,
+    minute: u32,
+) -> Result<(), D::Error> {
     // Convert minute into a position around the circle in radians
     let minute_radians = ((minute as f32 / 60.0) * 2.0 * PI) + START;
 
@@ -115,28 +129,33 @@ fn draw_minute_hand(minute: u32) -> Styled<Line, PrimitiveStyle<BinaryColor>> {
     let end = polar(minute_radians, hand_len);
 
     // Basic line hand
-    Line::new(CENTER, end).into_styled(PrimitiveStyle::with_stroke(BinaryColor::On, 1))
+    Line::new(CENTER, end)
+        .into_styled(PrimitiveStyle::with_stroke(BinaryColor::On, 1))
+        .draw(target)
 }
 
 /// Draw digital clock just above center with black text on a white background
 ///
 /// NOTE: The formatted time str must be passed in as references to temporary values in a
 /// function can't be returned.
-fn draw_digital_clock<'a>(time_str: &'a str) -> impl Iterator<Item = Pixel<BinaryColor>> + 'a {
+fn draw_digital_clock<D: DrawTarget<Color = BinaryColor>>(
+    target: &mut D,
+    time_str: &'_ str,
+) -> Result<(), D::Error> {
     let text = Text::new(&time_str, CENTER - Size::new(48, 48))
-        .into_styled(TextStyle::new(Font12x16, BinaryColor::Off));
+        .into_styled(MonospacedTextStyle::new(Font12x16, BinaryColor::Off));
 
     // Add a background around the time digits. Note that there is no bottom-right padding as this
     // is added by the font renderer itself
     let text_dimensions = text.bounding_box();
-    let background = Rectangle::new(
+    Rectangle::new(
         text_dimensions.top_left - Point::new(3, 3),
         text_dimensions.size + Size::new(3, 3),
     )
-    .into_styled(PrimitiveStyle::with_fill(BinaryColor::On));
+    .into_styled(PrimitiveStyle::with_fill(BinaryColor::On))
+    .draw(target)?;
 
-    // Draw the white background first, then the black text. Order matters here
-    background.into_pixels().chain(text.into_pixels())
+    text.draw(target)
 }
 
 fn main() -> Result<(), core::convert::Infallible> {
@@ -160,13 +179,13 @@ fn main() -> Result<(), core::convert::Infallible> {
 
         display.clear(BinaryColor::Off)?;
 
-        draw_face().draw(&mut display)?;
-        draw_hour_hand(time.hour()).draw(&mut display)?;
-        draw_minute_hand(time.minute()).draw(&mut display)?;
-        draw_seconds_hand(time.second()).draw(&mut display)?;
+        draw_face(&mut display)?;
+        draw_hour_hand(&mut display, time.hour())?;
+        draw_minute_hand(&mut display, time.minute())?;
+        draw_seconds_hand(&mut display, time.second())?;
 
         // Draw digital clock just above center
-        draw_digital_clock(&digital_clock_text).draw(&mut display)?;
+        draw_digital_clock(&mut display, &digital_clock_text)?;
 
         // Draw a small circle over the hands in the center of the clock face. This has to happen
         // after the hands are drawn so they're covered up

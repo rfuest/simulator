@@ -21,6 +21,7 @@ circle-ci = { repository = "embedded-graphics/simulator", branch = "master" }
 
 [dependencies]
 image = "0.23.0"
+bitflags = "1.2.1"
 
 [dependencies.sdl2]
 version = "0.32.2"
@@ -48,3 +49,6 @@ git = "https://github.com/embedded-graphics/tinytga"
 default = [ "with-sdl" ]
 fixed_point = [ "embedded-graphics/fixed_point" ]
 with-sdl = [ "sdl2" ]
+
+[patch.'https://github.com/embedded-graphics/embedded-graphics']
+embedded-graphics = { git = "https://github.com/rfuest/embedded-graphics", branch = "text-refactor"}
