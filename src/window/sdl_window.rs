@@ -67,7 +67,7 @@ pub enum SimulatorEvent {
 
 pub struct SdlWindow {
     canvas: Canvas<sdl2::video::Window>,
-    event_pump: EventPump,
+    event_pump: Option<EventPump>,
     window_texture: SdlWindowTexture,
     size: Size,
 }
@@ -84,6 +84,22 @@ impl SdlWindow {
         let sdl_context = sdl2::init().unwrap();
         let video_subsystem = sdl_context.video().unwrap();
 
+        let mut self_ =
+            Self::with_video_subsystem(display, title, output_settings, video_subsystem);
+        self_.event_pump = Some(sdl_context.event_pump().unwrap());
+
+        self_
+    }
+
+    pub fn with_video_subsystem<C>(
+        display: &SimulatorDisplay<C>,
+        title: &str,
+        output_settings: &OutputSettings,
+        video_subsystem: sdl2::VideoSubsystem,
+    ) -> Self
+    where
+        C: PixelColor + Into<Rgb888>,
+    {
         let size = output_settings.framebuffer_size(display);
 
         let window = video_subsystem
@@ -93,7 +109,6 @@ impl SdlWindow {
             .unwrap();
 
         let canvas = window.into_canvas().build().unwrap();
-        let event_pump = sdl_context.event_pump().unwrap();
 
         let window_texture = SdlWindowTextureBuilder {
             texture_creator: canvas.texture_creator(),
@@ -107,7 +122,7 @@ impl SdlWindow {
 
         Self {
             canvas,
-            event_pump,
+            event_pump: None,
             window_texture,
             size,
         }
@@ -139,6 +154,8 @@ impl SdlWindow {
     ) -> impl Iterator<Item = SimulatorEvent> + '_ {
         let output_settings = output_settings.clone();
         self.event_pump
+            .as_mut()
+            .expect("events cannot be used when SDL is externally managed")
             .poll_iter()
             .filter_map(move |event| match event {
                 Event::Quit { .. }

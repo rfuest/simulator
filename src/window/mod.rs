@@ -8,6 +8,7 @@ use std::{
 };
 
 use embedded_graphics::{pixelcolor::Rgb888, prelude::*};
+use sdl2::{event::Event, keyboard::Keycode};
 
 use crate::{
     display::SimulatorDisplay, output_image::OutputImage, output_settings::OutputSettings,
@@ -25,6 +26,8 @@ pub struct Window {
     framebuffer: Option<OutputImage<Rgb888>>,
     #[cfg(feature = "with-sdl")]
     sdl_window: Option<SdlWindow>,
+    #[cfg(feature = "with-sdl")]
+    video_subsystem: Option<sdl2::VideoSubsystem>,
     title: String,
     output_settings: OutputSettings,
     desired_loop_duration: Duration,
@@ -38,6 +41,27 @@ impl Window {
             framebuffer: None,
             #[cfg(feature = "with-sdl")]
             sdl_window: None,
+            #[cfg(feature = "with-sdl")]
+            video_subsystem: None,
+            title: String::from(title),
+            output_settings: output_settings.clone(),
+            desired_loop_duration: Duration::from_millis(1000 / output_settings.max_fps as u64),
+            frame_start: Instant::now(),
+        }
+    }
+
+    /// Creates a new simulator window.
+    pub fn with_video_subsystem(
+        title: &str,
+        output_settings: &OutputSettings,
+        video_subsystem: sdl2::VideoSubsystem,
+    ) -> Self {
+        Self {
+            framebuffer: None,
+            #[cfg(feature = "with-sdl")]
+            sdl_window: None,
+            #[cfg(feature = "with-sdl")]
+            video_subsystem: Some(video_subsystem),
             title: String::from(title),
             output_settings: output_settings.clone(),
             desired_loop_duration: Duration::from_millis(1000 / output_settings.max_fps as u64),
@@ -122,6 +146,14 @@ impl Window {
                 self.framebuffer = Some(OutputImage::new(display, &self.output_settings));
             }
 
+            if let Some(video_subsystem) = self.video_subsystem.take() {
+                self.sdl_window = Some(SdlWindow::with_video_subsystem(
+                    display,
+                    &self.title,
+                    &self.output_settings,
+                    video_subsystem,
+                ));
+            }
             if self.sdl_window.is_none() {
                 self.sdl_window = Some(SdlWindow::new(display, &self.title, &self.output_settings));
             }
@@ -171,5 +203,71 @@ impl Window {
             .as_mut()
             .unwrap()
             .events(&self.output_settings)
+    }
+
+    /// Converts a SDL event to a simulator event.
+    pub fn sdl_to_simulator_event(&self, event: sdl2::event::Event) -> Option<SimulatorEvent> {
+        match event {
+            Event::Quit { .. }
+            | Event::KeyDown {
+                keycode: Some(Keycode::Escape),
+                ..
+            } => Some(SimulatorEvent::Quit),
+            Event::KeyDown {
+                keycode,
+                keymod,
+                repeat,
+                ..
+            } => {
+                if let Some(valid_keycode) = keycode {
+                    Some(SimulatorEvent::KeyDown {
+                        keycode: valid_keycode,
+                        keymod,
+                        repeat,
+                    })
+                } else {
+                    None
+                }
+            }
+            Event::KeyUp {
+                keycode,
+                keymod,
+                repeat,
+                ..
+            } => {
+                if let Some(valid_keycode) = keycode {
+                    Some(SimulatorEvent::KeyUp {
+                        keycode: valid_keycode,
+                        keymod,
+                        repeat,
+                    })
+                } else {
+                    None
+                }
+            }
+            Event::MouseButtonUp {
+                x, y, mouse_btn, ..
+            } => {
+                let point = self.output_settings.output_to_display(Point::new(x, y));
+                Some(SimulatorEvent::MouseButtonUp { point, mouse_btn })
+            }
+            Event::MouseButtonDown {
+                x, y, mouse_btn, ..
+            } => {
+                let point = self.output_settings.output_to_display(Point::new(x, y));
+                Some(SimulatorEvent::MouseButtonDown { point, mouse_btn })
+            }
+            Event::MouseWheel {
+                x, y, direction, ..
+            } => Some(SimulatorEvent::MouseWheel {
+                scroll_delta: Point::new(x, y),
+                direction,
+            }),
+            Event::MouseMotion { x, y, .. } => {
+                let point = self.output_settings.output_to_display(Point::new(x, y));
+                Some(SimulatorEvent::MouseMove { point })
+            }
+            _ => None,
+        }
     }
 }
